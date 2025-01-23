@@ -180,33 +180,50 @@ const updateProject = (req, res) => {
 const deleteProject = (req, res) => {
     const { id } = req.params;
 
-    db.serialize(() => {
-        // Step 1: Delete all task assignments related to the project
-        const deleteAssignmentsStmt = db.prepare("DELETE FROM task_assignments WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)");
-        deleteAssignmentsStmt.run(id, (err) => {
-            if (err) {
-                return res.status(500).json({ error: 'Error deleting task assignments: ' + err.message }); // Internal Server Error
-            }
-        });
+    // Step 1: Check if the project exists
+    const checkProjectStmt = db.prepare("SELECT 1 FROM projects WHERE id = ?");
+    checkProjectStmt.get(id, (err, row) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error checking if project exists: ' + err.message });
+        }
 
-        // Step 2: Delete all tasks related to the project
-        const deleteTasksStmt = db.prepare("DELETE FROM tasks WHERE project_id = ?");
-        deleteTasksStmt.run(id, (err) => {
-            if (err) {
-                return res.status(500).json({ error: 'Error deleting tasks: ' + err.message }); // Internal Server Error
-            }
-        });
+        if (!row) {
+            return res.status(404).json({ error: `Project with ID ${id} not found or already deleted.` });
+        }
 
-        // Step 3: Now delete the project itself
-        const deleteProjectStmt = db.prepare("DELETE FROM projects WHERE id = ?");
-        deleteProjectStmt.run(id, (err) => {
-            if (err) {
-                return res.status(500).json({ error: err.message }); // Internal Server Error
-            }
-            res.status(204).end(); // No content to return, successful deletion
+        // Step 2: If the project exists, proceed with deletion
+        db.serialize(() => {
+            // Delete all task assignments related to the project
+            const deleteAssignmentsStmt = db.prepare("DELETE FROM task_assignments WHERE task_id IN (SELECT id FROM tasks WHERE project_id = ?)");
+            deleteAssignmentsStmt.run(id, (err) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Error deleting task assignments: ' + err.message });
+                }
+            });
+
+            // Delete all tasks related to the project
+            const deleteTasksStmt = db.prepare("DELETE FROM tasks WHERE project_id = ?");
+            deleteTasksStmt.run(id, (err) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Error deleting tasks: ' + err.message });
+                }
+            });
+
+            // Delete the project itself
+            const deleteProjectStmt = db.prepare("DELETE FROM projects WHERE id = ?");
+            deleteProjectStmt.run(id, (err) => {
+                if (err) {
+                    return res.status(500).json({ error: err.message });
+                }
+
+                res.status(200).json({
+                    message: `Project with ID ${id} was deleted successfully.`
+                });
+            });
         });
     });
 };
+
 
 module.exports = {
     getProjects,

@@ -324,26 +324,40 @@ const updateTask = (req, res) => {
 const deleteTask = (req, res) => {
     const { id } = req.params;
 
-    // Start a transaction to ensure both deletions happen together
-    db.serialize(() => {
-        // Delete all task assignments for the specific task
-        db.run("DELETE FROM task_assignments WHERE task_id = ?", [id], (err) => {
-            if (err) {
-                return res.status(500).json({ error: err.message });
-            }
+    // Step 1: Check if the task exists
+    db.get("SELECT 1 FROM tasks WHERE id = ?", [id], (err, row) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error checking if task exists: ' + err.message });
+        }
 
-            // Now delete the task from the tasks table
-            const stmt = db.prepare("DELETE FROM tasks WHERE id = ?");
-            stmt.run(id, (err) => {
+        // If task does not exist, return 404 Not Found
+        if (!row) {
+            return res.status(404).json({ error: `Task with ID ${id} not found or already deleted.` });
+        }
+
+        // Step 2: Start a transaction to ensure both deletions happen together
+        db.serialize(() => {
+            // Delete all task assignments for the specific task
+            db.run("DELETE FROM task_assignments WHERE task_id = ?", [id], (err) => {
                 if (err) {
                     return res.status(500).json({ error: err.message });
                 }
 
-                res.status(204).json({ message: "Task deleted successfully" }); // No content to return, successful deletion
+                // Now delete the task from the tasks table
+                const stmt = db.prepare("DELETE FROM tasks WHERE id = ?");
+                stmt.run(id, (err) => {
+                    if (err) {
+                        return res.status(500).json({ error: err.message });
+                    }
+
+                    // Successfully deleted the task
+                    res.status(200).json({ message: "Task deleted successfully" });
+                });
             });
         });
     });
 };
+
 
 module.exports = {
     deleteTask,

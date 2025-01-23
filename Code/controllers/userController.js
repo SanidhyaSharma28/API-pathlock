@@ -136,24 +136,36 @@ const updateUser = (req, res) => {
 const deleteUser = (req, res) => {
     const { id } = req.params;
 
-    // Step 1: Delete user from task_assignments table
-    const deleteAssignmentsStmt = db.prepare("DELETE FROM task_assignments WHERE user_id = ?");
-    deleteAssignmentsStmt.run(id, (err) => {
+    // Step 1: Check if the user exists
+    db.get("SELECT 1 FROM users WHERE id = ?", [id], (err, row) => {
         if (err) {
-            return res.status(500).json({ error: 'Error removing user assignments: ' + err.message }); // Internal Server Error
+            return res.status(500).json({ error: 'Error checking if user exists: ' + err.message });
         }
 
-        // Step 2: Delete the user from the users table
-        const deleteUserStmt = db.prepare("DELETE FROM users WHERE id = ?");
-        deleteUserStmt.run(id, (err) => {
+        // If user does not exist, return 404 Not Found
+        if (!row) {
+            return res.status(404).json({ error: `User with ID ${id} not found.` });
+        }
+
+        // Step 2: Delete user from task_assignments table
+        const deleteAssignmentsStmt = db.prepare("DELETE FROM task_assignments WHERE user_id = ?");
+        deleteAssignmentsStmt.run(id, (err) => {
             if (err) {
-                return res.status(500).json({ error: 'Error deleting user: ' + err.message }); // Internal Server Error
+                return res.status(500).json({ error: 'Error removing user assignments: ' + err.message });
             }
 
-            // Successfully deleted the user and their assignments
-            res.status(200).json({
-                message: `User with ID ${id} was deleted successfully.`
-            }); // Return a confirmation message
+            // Step 3: Delete the user from the users table
+            const deleteUserStmt = db.prepare("DELETE FROM users WHERE id = ?");
+            deleteUserStmt.run(id, (err) => {
+                if (err) {
+                    return res.status(500).json({ error: 'Error deleting user: ' + err.message });
+                }
+
+                // Successfully deleted the user and their assignments
+                res.status(200).json({
+                    message: `User with ID ${id} was deleted successfully.`
+                });
+            });
         });
     });
 };
