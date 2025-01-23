@@ -15,11 +15,11 @@ const getProjects = (req, res) => {
     // Prepare the WHERE conditions (status and name)
     let whereClauses = [];
     if (status) {
-        whereClauses.push('projects.status = ?');
+        whereClauses.unshift('projects.status = ?');
         params.unshift(status); // Add status parameter to the beginning
     }
     if (nameSearch) {
-        whereClauses.push('projects.name LIKE ?');
+        whereClauses.unshift('projects.name LIKE ?');
         params.unshift(`%${nameSearch}%`); // Add name search parameter to the beginning with LIKE pattern
     }
     

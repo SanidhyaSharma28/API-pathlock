@@ -151,10 +151,13 @@ const deleteUser = (req, res) => {
             }
 
             // Successfully deleted the user and their assignments
-            res.status(204).end(); // No content to return, successful deletion
+            res.status(200).json({
+                message: `User with ID ${id} was deleted successfully.`
+            }); // Return a confirmation message
         });
     });
 };
+
 
 module.exports = {
     deleteUser, getUsers, getUserById, createUser, updateUser
